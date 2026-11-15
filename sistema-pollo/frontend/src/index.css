@@ -1,0 +1,72 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Tokens de color (RGB sin "rgb()" para poder usar opacidad en Tailwind).
+ * Datos: un solo tono azul (serie) + gris neutro para contexto/comparación.
+ * Marca: ámbar, sólo para controles y navegación — nunca para datos.
+ */
+:root {
+  color-scheme: light;
+  --fondo: 245 245 243;
+  --superficie: 252 252 251;
+  --borde: 228 227 223;
+  --tinta: 11 11 11;
+  --tinta-2: 82 81 78;
+  --tinta-3: 120 119 114;
+  --serie: 42 120 214; /* #2a78d6 */
+  --serie-suave: 205 226 251; /* #cde2fb */
+  --neutro: 190 189 183;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --fondo: 17 17 16;
+    --superficie: 26 26 25;
+    --borde: 52 52 49;
+    --tinta: 240 239 236;
+    --tinta-2: 195 194 183;
+    --tinta-3: 150 149 141;
+    --serie: 57 135 229; /* #3987e5 */
+    --serie-suave: 24 56 98;
+    --neutro: 90 89 84;
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --fondo: 17 17 16;
+  --superficie: 26 26 25;
+  --borde: 52 52 49;
+  --tinta: 240 239 236;
+  --tinta-2: 195 194 183;
+  --tinta-3: 150 149 141;
+  --serie: 57 135 229;
+  --serie-suave: 24 56 98;
+  --neutro: 90 89 84;
+}
+
+html,
+body {
+  background: rgb(var(--fondo));
+  color: rgb(var(--tinta));
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Animación chispas de fuego en pantalla de login */
+@keyframes pulse {
+  0%, 100% { opacity: 0.1; transform: translateY(0) scale(1); }
+  50%       { opacity: 0.7; transform: translateY(-8px) scale(1.3); }
+}
