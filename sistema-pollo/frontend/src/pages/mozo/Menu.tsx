@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Minus, Plus, Search, X } from 'lucide-react';
+import { ChevronDown, Minus, Plus, Search, X } from 'lucide-react';
 import api from '../../api/cliente';
 import { CategoriaMenu, Opcion, ProductoMenu } from '../../api/tipos';
 import { useCarrito } from '../../context/CarritoContext';
@@ -10,10 +10,21 @@ import { S } from '../../utils/formato';
 /** RF-003 / RF-004: menú por categorías con buscador, opciones y notas. */
 const Menu = () => {
   const { datos: categorias, error, cargando, recargar } = useDatos(() => api.get<CategoriaMenu[]>('/menu').then((r) => r.data));
-  const { agregar, items, totalUnidades, subtotal, pedidoDestino, setPedidoDestino } = useCarrito();
+  const { agregar, cambiarCantidad, items, totalUnidades, subtotal, pedidoDestino, setPedidoDestino } = useCarrito();
   const [categoria, setCategoria] = useState<number | null>(null);
   const [buscar, setBuscar] = useState('');
   const [elegido, setElegido] = useState<ProductoMenu | null>(null);
+
+  // Panel inline por producto
+  const [panelAbierto, setPanelAbierto] = useState<number | null>(null);
+  const [conPapa, setConPapa] = useState(false);
+  const [conArroz, setConArroz] = useState(false);
+  const [cantPanel, setCantPanel] = useState(1);
+  // Paso 2: cremas expandidas (solo Broaster)
+  const [cremasAbiertas, setCremasAbiertas] = useState(false);
+  const [cremasSeleccionadas, setCremasSeleccionadas] = useState<Opcion[]>([]);
+  // Nota del panel inline
+  const [notaPanel, setNotaPanel] = useState('');
 
   const visibles = useMemo(() => {
     const q = buscar.trim().toLowerCase();
@@ -24,6 +35,50 @@ const Menu = () => {
   }, [categorias, categoria, buscar]);
 
   const enCarrito = (id: number) => items.filter((i) => i.producto.id_productos === id).reduce((s, i) => s + i.cantidad, 0);
+
+  // 'papa+arroz' → Parrilla | 'arroz+cremas' → todos los platos Broaster | 'ninguno' → resto
+  const tipoPanel = (p: ProductoMenu, categoriaId: number): 'papa+arroz' | 'arroz+cremas' | 'ninguno' => {
+    if (categoriaId === 1) return 'papa+arroz';
+    if (categoriaId === 2) return 'arroz+cremas';
+    return 'ninguno';
+  };
+
+  const abrirPanel = (p: ProductoMenu, categoriaId: number) => {
+    const tipo = tipoPanel(p, categoriaId);
+    if (tipo === 'ninguno') { agregar(p); return; }
+    if (panelAbierto === p.id_productos) { cerrarPanel(); return; }
+    setPanelAbierto(p.id_productos);
+    setConPapa(false);
+    setConArroz(false);
+    setCantPanel(1);
+    setCremasAbiertas(false);
+    setCremasSeleccionadas([]);
+  };
+
+  const cerrarPanel = () => {
+    setPanelAbierto(null);
+    setConPapa(false);
+    setConArroz(false);
+    setCantPanel(1);
+    setCremasAbiertas(false);
+    setCremasSeleccionadas([]);
+    setNotaPanel('');
+  };
+
+  const toggleCrema = (o: Opcion) => {
+    setCremasSeleccionadas((prev) =>
+      prev.some((x) => x.id_opciones_producto === o.id_opciones_producto)
+        ? prev.filter((x) => x.id_opciones_producto !== o.id_opciones_producto)
+        : [...prev, o]
+    );
+  };
+
+  const confirmarAgregar = (p: ProductoMenu) => {
+    const partes = [conPapa && 'papa', conArroz && 'arroz'].filter(Boolean) as string[];
+    const nota = [partes.join(' + '), notaPanel.trim()].filter(Boolean).join(' | ');
+    agregar(p, cremasSeleccionadas, nota, cantPanel);
+    cerrarPanel();
+  };
 
   if (cargando) return <Spinner texto="Cargando carta…" />;
   if (error) return <div className="p-4"><Aviso>{error}</Aviso><Boton className="mt-3 w-full" variante="secundario" onClick={() => recargar()}>Reintentar</Boton></div>;
@@ -36,6 +91,7 @@ const Menu = () => {
           <button onClick={() => setPedidoDestino(null)} className="flex h-9 items-center gap-1 rounded-lg px-2 font-medium"><X className="h-4 w-4" /> Cancelar</button>
         </div>
       )}
+
       <div className="sticky top-[57px] z-10 space-y-2 border-b border-borde bg-fondo/95 px-4 py-3 backdrop-blur">
         <label className="flex items-center gap-2 rounded-xl border border-borde bg-superficie px-3">
           <Search className="h-4 w-4 text-tinta-3" />
@@ -45,7 +101,8 @@ const Menu = () => {
         {!buscar && (
           <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
             {[{ id_categorias: null as number | null, nombre: 'Todo' }, ...(categorias ?? [])].map((c) => (
-              <button key={c.id_categorias ?? 0} onClick={() => setCategoria(c.id_categorias)} className={`h-10 shrink-0 rounded-full px-4 text-sm font-medium ${categoria === c.id_categorias ? 'bg-amber-500 text-white' : 'bg-superficie text-tinta-2'}`}>
+              <button key={c.id_categorias ?? 0} onClick={() => setCategoria(c.id_categorias)}
+                className={`h-10 shrink-0 rounded-full px-4 text-sm font-medium ${categoria === c.id_categorias ? 'bg-amber-500 text-white' : 'bg-superficie text-tinta-2'}`}>
                 {c.nombre}
               </button>
             ))}
@@ -60,22 +117,133 @@ const Menu = () => {
             <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {c.productos.map((p) => {
                 const n = enCarrito(p.id_productos);
+                const panelVisible = panelAbierto === p.id_productos;
+                const tipoPan = tipoPanel(p, c.id_categorias);
+                const usaPanel = tipoPan !== 'ninguno';
+
                 return (
                   <li key={p.id_productos}>
-                    <button onClick={() => (p.opciones.length ? setElegido(p) : agregar(p))} className={`flex w-full items-center gap-3 rounded-2xl border bg-superficie p-3 text-left transition active:scale-[0.99] ${n ? 'border-amber-400' : 'border-borde'}`}>
-                      {p.foto && <img src={p.foto} alt="" className="h-16 w-16 shrink-0 rounded-xl object-cover" loading="lazy" />}
-                      <div className="min-w-0 flex-1">
-                        <p className="font-semibold leading-tight">{p.nombre}</p>
-                        {p.descripcion && <p className="line-clamp-2 text-sm text-tinta-3">{p.descripcion}</p>}
-                        <p className="num mt-1 font-semibold text-amber-700 dark:text-amber-400">{S(p.precio)}</p>
+                    <div className={`rounded-2xl border bg-superficie transition ${n ? 'border-amber-400' : 'border-borde'}`}>
+
+                      {/* Fila principal */}
+                      <div className="flex w-full items-center gap-3 p-3">
+                        {p.foto && <img src={p.foto} alt="" className="h-16 w-16 shrink-0 rounded-xl object-cover" loading="lazy" />}
+                        <button onClick={() => p.opciones.length && tipoPan === 'ninguno' ? setElegido(p) : abrirPanel(p, c.id_categorias)}
+                          className="min-w-0 flex-1 text-left active:scale-[0.99]">
+                          <p className="font-semibold leading-tight">{p.nombre}</p>
+                          {p.descripcion && <p className="line-clamp-2 text-sm text-tinta-3">{p.descripcion}</p>}
+                          <p className="num mt-1 font-semibold text-amber-700 dark:text-amber-400">{S(p.precio)}</p>
+                        </button>
+                        {n > 0 ? (
+                          <div className="flex shrink-0 items-center gap-1">
+                            <button onClick={() => { const u = [...items].reverse().find((i) => i.producto.id_productos === p.id_productos); if (u) cambiarCantidad(u.clave, u.cantidad - 1); }}
+                              className="flex h-9 w-9 items-center justify-center rounded-xl bg-fondo text-tinta-2 active:scale-95" aria-label="Quitar uno">
+                              <Minus className="h-4 w-4" />
+                            </button>
+                            <span className="num w-7 text-center font-bold text-amber-500">{n}</span>
+                            <button onClick={() => usaPanel ? abrirPanel(p, c.id_categorias) : agregar(p)}
+                              className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500 text-white active:scale-95" aria-label="Agregar uno">
+                              <Plus className="h-4 w-4" />
+                            </button>
+                          </div>
+                        ) : (
+                          <button onClick={() => p.opciones.length && tipoPan === 'ninguno' ? setElegido(p) : abrirPanel(p, c.id_categorias)}
+                            className="flex h-11 min-w-[44px] shrink-0 items-center justify-center rounded-xl bg-fondo text-tinta-2 active:scale-95" aria-label="Agregar">
+                            <Plus className="h-5 w-5" />
+                          </button>
+                        )}
                       </div>
-                      <span className={`flex h-11 min-w-[44px] items-center justify-center rounded-xl font-bold ${n ? 'bg-amber-500 text-white' : 'bg-fondo text-tinta-2'}`}>
-                        {n ? n : <Plus className="h-5 w-5" />}
-                      </span>
-                    </button>
-                    <button onClick={() => setElegido(p)} className="mt-1 px-1 text-xs text-tinta-3 underline-offset-2 hover:underline">
-                      Agregar con nota{p.opciones.length ? ' u opciones' : ''}
-                    </button>
+
+                      {/* Panel inline */}
+                      {panelVisible && (
+                        <div className="border-t border-borde px-3 pb-3 pt-2 space-y-3">
+
+                          {/* Paso 1: acompañamientos */}
+                          <div>
+                            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-tinta-3">Acompañamientos</p>
+                            <div className="flex gap-2">
+                              {tipoPan === 'papa+arroz' && (
+                                <button onClick={() => setConPapa((v) => !v)}
+                                  className={`flex h-10 flex-1 items-center justify-center rounded-xl border text-sm font-semibold transition ${conPapa ? 'border-amber-500 bg-amber-500 text-white' : 'border-borde bg-fondo text-tinta-2'}`}>
+                                  🥔 Papa
+                                </button>
+                              )}
+                              <button onClick={() => setConArroz((v) => !v)}
+                                className={`flex h-10 flex-1 items-center justify-center rounded-xl border text-sm font-semibold transition ${conArroz ? 'border-amber-500 bg-amber-500 text-white' : 'border-borde bg-fondo text-tinta-2'}`}>
+                                🍚 Arroz
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Paso 2: cremas (solo Broaster con opciones) */}
+                          {tipoPan === 'arroz+cremas' && p.opciones.length > 0 && (
+                            <div>
+                              <button onClick={() => setCremasAbiertas((v) => !v)}
+                                className="flex w-full items-center justify-between rounded-xl border border-borde bg-fondo px-3 py-2 text-sm font-medium text-tinta-2">
+                                <span>🫙 Cremas {cremasSeleccionadas.length > 0 && <span className="ml-1 rounded-full bg-amber-500 px-1.5 py-0.5 text-xs text-white">{cremasSeleccionadas.length}</span>}</span>
+                                <ChevronDown className={`h-4 w-4 transition-transform ${cremasAbiertas ? 'rotate-180' : ''}`} />
+                              </button>
+                              {cremasAbiertas && (
+                                <div className="mt-2 grid grid-cols-2 gap-1.5">
+                                  {p.opciones.map((o) => {
+                                    const sel = cremasSeleccionadas.some((x) => x.id_opciones_producto === o.id_opciones_producto);
+                                    return (
+                                      <button key={o.id_opciones_producto} onClick={() => toggleCrema(o)}
+                                        className={`flex h-9 items-center justify-center rounded-xl border text-sm font-medium transition ${sel ? 'border-amber-500 bg-amber-500 text-white' : 'border-borde bg-fondo text-tinta-2'}`}>
+                                        {o.nombre}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Campo de nota */}
+                          <div>
+                            <input
+                              value={notaPanel}
+                              onChange={(e) => setNotaPanel(e.target.value)}
+                              maxLength={120}
+                              placeholder="Nota para cocina (opcional)"
+                              className="h-10 w-full rounded-xl border border-borde bg-fondo px-3 text-sm"
+                            />
+                          </div>
+
+                          {/* Contador de cantidad */}
+                          <div className="flex items-center justify-center gap-4">
+                            <button onClick={() => setCantPanel((v) => Math.max(1, v - 1))}
+                              className="flex h-10 w-10 items-center justify-center rounded-xl bg-fondo text-tinta-2 active:scale-95" aria-label="Menos">
+                              <Minus className="h-4 w-4" />
+                            </button>
+                            <span className="num w-10 text-center text-xl font-bold">{cantPanel}</span>
+                            <button onClick={() => setCantPanel((v) => Math.min(99, v + 1))}
+                              className="flex h-10 w-10 items-center justify-center rounded-xl bg-fondo text-tinta-2 active:scale-95" aria-label="Más">
+                              <Plus className="h-4 w-4" />
+                            </button>
+                          </div>
+
+                          {/* Botones de acción */}
+                          <div className="flex gap-2">
+                            <button onClick={cerrarPanel}
+                              className="flex h-10 flex-1 items-center justify-center rounded-xl border border-borde bg-fondo text-sm text-tinta-2">
+                              Cancelar
+                            </button>
+                            <button onClick={() => confirmarAgregar(p)}
+                              className="flex h-10 flex-1 items-center justify-center rounded-xl bg-amber-500 text-sm font-semibold text-white">
+                              Agregar {cantPanel > 1 ? `${cantPanel} × ` : ''}{S(p.precio * cantPanel)}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Enlace de nota / opciones solo para productos sin panel (otras categorías) */}
+                    {!panelVisible && tipoPan === 'ninguno' && (
+                      <button onClick={() => setElegido(p)} className="mt-1 px-1 text-xs text-tinta-3 underline-offset-2 hover:underline">
+                        Agregar con nota{p.opciones.length ? ' u opciones' : ''}
+                      </button>
+                    )}
                   </li>
                 );
               })}

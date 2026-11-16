@@ -21,7 +21,7 @@ export const obtenerMenu = async (buscar?: string) => {
       areaId: number;
     }>(
       `SELECT p.id_productos, p.nombre, p.descripcion, p.precio, p.recargoLlevar, p.foto, p.categoriaId, p.areaId
-         FROM productos p WHERE p.activo = 1 ${filtro} ORDER BY p.nombre`,
+         FROM productos p WHERE p.activo = 1 ${filtro} ORDER BY p.categoriaId, p.id_productos`,
       params
     ),
     consultar<{ id_opciones_producto: number; productoId: number; nombre: string; precioExtra: string }>(

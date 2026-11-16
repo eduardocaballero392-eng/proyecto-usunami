@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Bike, Minus, Plus, ShoppingBag, Trash2, UtensilsCrossed } from 'lucide-react';
+import { ArrowLeft, Bike, Minus, Plus, ShoppingBag, Trash2, UtensilsCrossed } from 'lucide-react';
 import api, { mensajeError } from '../../api/cliente';
 import { MesaEstado, TipoPedido } from '../../api/tipos';
 import { precioItem, useCarrito } from '../../context/CarritoContext';
@@ -14,11 +14,12 @@ const Carrito = () => {
   const [tipo, setTipo] = useState<TipoPedido>('MESA');
   const [mesas, setMesas] = useState<number[]>([]);
   const [observacion, setObservacion] = useState('');
+  const [conTaper, setConTaper] = useState(false);
   const [error, setError] = useState('');
   const [enviando, setEnviando] = useState(false);
   const estadoMesas = useDatos(() => api.get<MesaEstado[]>('/mesas').then((r) => r.data), [], 15_000);
 
-  const recargo = tipo === 'LLEVAR' && !pedidoDestino ? items.reduce((s, i) => s + i.cantidad * i.producto.recargoLlevar, 0) : 0;
+  const recargo = conTaper && tipo !== 'MESA' && !pedidoDestino ? 1.00 : 0;
   const listo = items.length > 0 && (pedidoDestino || tipo !== 'MESA' || mesas.length > 0);
 
   const enviar = async () => {
@@ -55,7 +56,23 @@ const Carrito = () => {
   return (
     <div className="mx-auto max-w-2xl space-y-5 px-4 py-4">
       <section>
-        <h2 className="mb-2 font-semibold">{pedidoDestino ? `Agregar a ${pedidoDestino.titulo}` : 'Productos'}</h2>
+        <div className="mb-2 flex items-center justify-between">
+          <h2 className="font-semibold">{pedidoDestino ? `Agregar a ${pedidoDestino.titulo}` : 'Productos'}</h2>
+          <div className="flex gap-2">
+            <Link
+              to="/mozo/menu"
+              className="flex h-9 items-center gap-1.5 rounded-xl border border-borde bg-superficie px-3 text-sm text-tinta-2"
+            >
+              <ArrowLeft className="h-4 w-4" /> Volver
+            </Link>
+            <Link
+              to="/mozo/menu"
+              className="flex h-9 items-center gap-1.5 rounded-xl bg-amber-500 px-3 text-sm font-semibold text-white"
+            >
+              <Plus className="h-4 w-4" /> Agregar más
+            </Link>
+          </div>
+        </div>
         <ul className="divide-y divide-borde rounded-2xl border border-borde bg-superficie">
           {items.map((i) => (
             <li key={i.clave} className="flex items-center gap-3 p-3">
@@ -119,10 +136,24 @@ const Carrito = () => {
             </div>
           )}
           {tipo !== 'MESA' && (
-            <label className="mt-3 block">
-              <span className="mb-1 block text-sm text-tinta-2">{tipo === 'DELIVERY' ? 'Dirección / referencia' : 'Nombre del cliente (opcional)'}</span>
-              <input value={observacion} onChange={(e) => setObservacion(e.target.value)} maxLength={200} className="h-11 w-full rounded-xl border border-borde bg-superficie px-3" />
-            </label>
+            <div className="mt-3 space-y-2">
+              <label className="block">
+                <span className="mb-1 block text-sm text-tinta-2">{tipo === 'DELIVERY' ? 'Dirección / referencia' : 'Nombre del cliente (opcional)'}</span>
+                <input value={observacion} onChange={(e) => setObservacion(e.target.value)} maxLength={200} className="h-11 w-full rounded-xl border border-borde bg-superficie px-3" />
+              </label>
+              {/* Toggle taper */}
+              <button
+                onClick={() => setConTaper((v) => !v)}
+                aria-pressed={conTaper}
+                className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-sm font-medium transition ${conTaper ? 'border-amber-500 bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300' : 'border-borde bg-superficie text-tinta-2'}`}
+              >
+                <span>🥡 Taper</span>
+                <span className={`flex h-6 w-11 items-center rounded-full transition-colors ${conTaper ? 'bg-amber-500' : 'bg-tinta-3/30'}`}>
+                  <span className={`mx-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${conTaper ? 'translate-x-5' : 'translate-x-0'}`} />
+                </span>
+              </button>
+              {conTaper && <p className="text-right text-xs text-tinta-3">+S/ 1.00 por taper</p>}
+            </div>
           )}
         </section>
       )}
@@ -132,7 +163,7 @@ const Carrito = () => {
       <section className="rounded-2xl border border-borde bg-superficie p-4">
         <dl className="num space-y-1 text-sm">
           <div className="flex justify-between"><dt className="text-tinta-2">Subtotal</dt><dd>{S(subtotal)}</dd></div>
-          {recargo > 0 && <div className="flex justify-between"><dt className="text-tinta-2">Envases para llevar</dt><dd>+{S(recargo)}</dd></div>}
+          {recargo > 0 && <div className="flex justify-between"><dt className="text-tinta-2">Taper</dt><dd>+{S(recargo)}</dd></div>}
           <div className="flex justify-between pt-1 text-lg font-bold"><dt>Total</dt><dd>{S(subtotal + recargo)}</dd></div>
         </dl>
         <Boton className="mt-3 w-full text-lg" disabled={!listo} cargando={enviando} onClick={enviar}>
