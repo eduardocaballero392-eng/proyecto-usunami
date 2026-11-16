@@ -21,7 +21,7 @@ INSERT INTO productos (nombre, descripcion, precio, recargoLlevar, categoriaId, 
   ('Pierna broaster',      'Pollo broaster',   11.00, 1.00, 2, 2),
   -- Hamburguesas
   ('Hamburguesa de carne', 'Hamburguesa',       7.00, 1.00, 2, 2),
-  ('Hamburguesa de pollo', 'Hamburguesa',       7.00, 1.00, 2, 2),
+  ('Hamburguesa de pollos', 'Hamburguesa',       7.00, 1.00, 2, 2),
   -- Mostrito Broaster
   ('Alita mostrito',       'Mostrito broaster', 13.00, 1.00, 2, 2),
   ('Entrepierna mostrito', 'Mostrito broaster', 14.00, 1.00, 2, 2),
