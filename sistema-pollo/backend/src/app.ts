@@ -11,6 +11,7 @@ import pedidosRoutes from './routes/pedidos.routes';
 import cajaRoutes from './routes/caja.routes';
 import reportesRoutes from './routes/reportes.routes';
 import adminRoutes from './routes/admin.routes';
+import parrillaRoutes from './routes/parrilla.routes';
 
 const app = express();
 app.set('trust proxy', false);
@@ -39,6 +40,7 @@ app.use('/api', pedidosRoutes); // /api/menu, /api/mesas, /api/pedidos/*
 app.use('/api/caja', cajaRoutes);
 app.use('/api/reportes', reportesRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/parrilla', parrillaRoutes);
 app.use('/api', noEncontrado);
 
 // En producción el mismo servidor entrega la app web (frontend/dist) → un solo puerto, sin internet

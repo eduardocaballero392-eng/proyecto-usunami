@@ -1,15 +1,16 @@
 import { NavLink, Outlet } from 'react-router-dom';
-import { BarChart3, Flame, LayoutDashboard, LogOut, Settings, ShoppingBag, UtensilsCrossed, Users, Wallet } from 'lucide-react';
+import { BarChart3, Flame, Flame as FlameIcon, LayoutDashboard, LogOut, Settings, ShoppingBag, UtensilsCrossed, Users, Wallet } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 const enlaces = [
-  { a: '/admin', texto: 'Dashboard', Icono: LayoutDashboard, fin: true },
-  { a: '/admin/reportes', texto: 'Reportes', Icono: BarChart3 },
-  { a: '/admin/pedidos', texto: 'Pedidos', Icono: ShoppingBag },
-  { a: '/admin/personal', texto: 'Personal', Icono: Users },
-  { a: '/admin/carta', texto: 'Carta', Icono: UtensilsCrossed },
-  { a: '/admin/configuracion', texto: 'Local', Icono: Settings },
-  { a: '/caja', texto: 'Caja', Icono: Wallet },
+  { a: '/admin',             texto: 'Dashboard',   Icono: LayoutDashboard, fin: true },
+  { a: '/admin/parrilla',    texto: 'Parrilla',    Icono: FlameIcon },
+  { a: '/admin/reportes',    texto: 'Reportes',    Icono: BarChart3 },
+  { a: '/admin/pedidos',     texto: 'Pedidos',     Icono: ShoppingBag },
+  { a: '/admin/personal',    texto: 'Personal',    Icono: Users },
+  { a: '/admin/carta',       texto: 'Carta',       Icono: UtensilsCrossed },
+  { a: '/admin/configuracion', texto: 'Local',     Icono: Settings },
+  { a: '/caja',              texto: 'Caja',        Icono: Wallet },
 ];
 
 const AdminLayout = () => {
