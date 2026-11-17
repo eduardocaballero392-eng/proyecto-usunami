@@ -17,18 +17,18 @@ interface UsuarioFila {
 
 const etiquetaRol = (r: Rol) => ROLES.find((x) => x.valor === r)?.etiqueta ?? r;
 
-/**
- * RF-018 / RF-019: un solo módulo para todo el personal.
- * Los mozos son usuarios con rol MOZO (sin contraseña, PIN opcional).
- */
+/** RF-018 / RF-019: un solo módulo para todo el personal. */
 const Personal = () => {
   const { usuario: yo } = useAuth();
   const { datos, error, cargando, recargar } = useDatos(() => api.get<UsuarioFila[]>('/admin/usuarios').then((r) => r.data));
   const [filtro, setFiltro] = useState<'todos' | 'MOZO' | 'personal'>('todos');
   const [editando, setEditando] = useState<UsuarioFila | 'nuevo' | null>(null);
+  const [cambiandoPin, setCambiandoPin] = useState<UsuarioFila | null>(null);
   const [aviso, setAviso] = useState('');
 
-  const filas = (datos ?? []).filter((u) => filtro === 'todos' || (filtro === 'MOZO' ? u.rol === 'MOZO' : u.rol !== 'MOZO'));
+  const filas = (datos ?? []).filter((u) =>
+    filtro === 'todos' || (filtro === 'MOZO' ? u.rol === 'MOZO' : u.rol !== 'MOZO')
+  );
 
   const alternarActivo = async (u: UsuarioFila) => {
     try {
@@ -53,15 +53,17 @@ const Personal = () => {
 
       <div className="flex gap-1" role="group" aria-label="Filtro">
         {[
-          { v: 'todos', t: 'Todos' },
-          { v: 'MOZO', t: 'Mozos' },
+          { v: 'todos',    t: 'Todos' },
+          { v: 'MOZO',     t: 'Mozos' },
           { v: 'personal', t: 'Con usuario' },
         ].map((f) => (
           <button
             key={f.v}
             onClick={() => setFiltro(f.v as typeof filtro)}
             aria-pressed={filtro === f.v}
-            className={`h-9 rounded-lg px-3 text-sm font-medium ${filtro === f.v ? 'bg-amber-500 text-white' : 'bg-superficie text-tinta-2 hover:bg-fondo'}`}
+            className={`h-9 rounded-lg px-3 text-sm font-medium ${
+              filtro === f.v ? 'bg-amber-500 text-white' : 'bg-superficie text-tinta-2 hover:bg-fondo'
+            }`}
           >
             {f.t}
           </button>
@@ -69,16 +71,21 @@ const Personal = () => {
       </div>
 
       {(error || aviso) && <Aviso onCerrar={() => setAviso('')}>{error || aviso}</Aviso>}
+
       {cargando && !datos ? (
         <Spinner />
       ) : (
         <Tarjeta className="!p-0">
           <ul className="divide-y divide-borde">
             {filas.map((u) => (
-              <li key={u.id_usuarios} className={`flex flex-wrap items-center gap-3 px-4 py-3 ${u.activo ? '' : 'opacity-60'}`}>
+              <li
+                key={u.id_usuarios}
+                className={`flex flex-wrap items-center gap-3 px-4 py-3 ${u.activo ? '' : 'opacity-60'}`}
+              >
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-fondo text-tinta-2">
                   <User className="h-5 w-5" />
                 </span>
+
                 <div className="min-w-0 flex-1">
                   <p className="font-medium">
                     {u.nombre}
@@ -99,19 +106,37 @@ const Personal = () => {
                     <span>{u.pedidos} pedidos</span>
                   </p>
                 </div>
+
                 <div className="flex items-center gap-1">
                   {u.id_usuarios !== yo?.id && (
                     <Boton variante="fantasma" onClick={() => alternarActivo(u)} className="text-sm">
                       {u.activo ? 'Desactivar' : 'Activar'}
                     </Boton>
                   )}
-                  <Boton variante="secundario" onClick={() => setEditando(u)} aria-label={`Editar ${u.nombre}`}>
+                  {/* Botón PIN — solo el administrador lo ve */}
+                  {yo?.rol === 'ADMIN' && (
+                    <Boton
+                      variante="secundario"
+                      onClick={() => setCambiandoPin(u)}
+                      aria-label={`PIN de ${u.nombre}`}
+                      title={u.tienePin ? 'Cambiar PIN' : 'Asignar PIN'}
+                    >
+                      <Lock className="h-4 w-4" />
+                    </Boton>
+                  )}
+                  <Boton
+                    variante="secundario"
+                    onClick={() => setEditando(u)}
+                    aria-label={`Editar ${u.nombre}`}
+                  >
                     <Pencil className="h-4 w-4" />
                   </Boton>
                 </div>
               </li>
             ))}
-            {!filas.length && <li className="px-4 py-8 text-center text-sm text-tinta-3">No hay registros</li>}
+            {!filas.length && (
+              <li className="px-4 py-8 text-center text-sm text-tinta-3">No hay registros</li>
+            )}
           </ul>
         </Tarjeta>
       )}
@@ -120,23 +145,116 @@ const Personal = () => {
         <FormUsuario
           usuario={editando === 'nuevo' ? null : editando}
           onCerrar={() => setEditando(null)}
-          onGuardado={() => {
-            setEditando(null);
-            recargar(true);
-          }}
+          onGuardado={() => { setEditando(null); recargar(true); }}
+        />
+      )}
+
+      {cambiandoPin && (
+        <ModalPin
+          usuario={cambiandoPin}
+          onCerrar={() => setCambiandoPin(null)}
+          onGuardado={() => { setCambiandoPin(null); recargar(true); }}
         />
       )}
     </div>
   );
 };
 
-const FormUsuario = ({ usuario, onCerrar, onGuardado }: { usuario: UsuarioFila | null; onCerrar: () => void; onGuardado: () => void }) => {
+// ── Modal exclusivo para cambiar / asignar / quitar PIN ────────────────────
+const ModalPin = ({
+  usuario,
+  onCerrar,
+  onGuardado,
+}: {
+  usuario: UsuarioFila;
+  onCerrar: () => void;
+  onGuardado: () => void;
+}) => {
+  const [pin, setPin] = useState('');
+  const [quitar, setQuitar] = useState(false);
+  const [error, setError] = useState('');
+  const [guardando, setGuardando] = useState(false);
+
+  const guardar = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!quitar && pin.length !== 4) {
+      setError('El PIN debe tener exactamente 4 dígitos');
+      return;
+    }
+    setGuardando(true);
+    setError('');
+    try {
+      await api.patch(`/admin/usuarios/${usuario.id_usuarios}`, { pin: quitar ? '' : pin });
+      onGuardado();
+    } catch (err) {
+      setError(mensajeError(err));
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  return (
+    <Modal abierto titulo={`PIN — ${usuario.nombre}`} onCerrar={onCerrar}>
+      <form onSubmit={guardar} className="space-y-4">
+        {error && <Aviso>{error}</Aviso>}
+
+        <p className="text-sm text-tinta-2">
+          {usuario.tienePin
+            ? 'Este usuario ya tiene un PIN. Puedes cambiarlo o quitarlo.'
+            : 'Este usuario no tiene PIN. Asígnale uno para que deba ingresarlo al seleccionar su nombre.'}
+        </p>
+
+        {!quitar && (
+          <Campo
+            etiqueta={usuario.tienePin ? 'Nuevo PIN de 4 dígitos' : 'PIN de 4 dígitos'}
+            inputMode="numeric"
+            pattern="\d{4}"
+            maxLength={4}
+            placeholder="••••"
+            value={pin}
+            onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
+            ayuda="Solo el administrador puede cambiar este PIN"
+            autoFocus
+          />
+        )}
+
+        {usuario.tienePin && (
+          <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-borde bg-fondo px-3 py-2.5 text-sm">
+            <input
+              type="checkbox"
+              checked={quitar}
+              onChange={(e) => { setQuitar(e.target.checked); setPin(''); }}
+              className="h-4 w-4 accent-amber-500"
+            />
+            <span>Quitar el PIN actual (el usuario podrá entrar sin PIN)</span>
+          </label>
+        )}
+
+        <div className="flex justify-end gap-2 pt-2">
+          <Boton type="button" variante="secundario" onClick={onCerrar}>Cancelar</Boton>
+          <Boton type="submit" cargando={guardando}>
+            {quitar ? 'Quitar PIN' : usuario.tienePin ? 'Cambiar PIN' : 'Asignar PIN'}
+          </Boton>
+        </div>
+      </form>
+    </Modal>
+  );
+};
+
+// ── Formulario de crear / editar usuario ──────────────────────────────────
+const FormUsuario = ({
+  usuario,
+  onCerrar,
+  onGuardado,
+}: {
+  usuario: UsuarioFila | null;
+  onCerrar: () => void;
+  onGuardado: () => void;
+}) => {
   const [nombre, setNombre] = useState(usuario?.nombre ?? '');
   const [rol, setRol] = useState<Rol>(usuario?.rol ?? 'MOZO');
   const [login, setLogin] = useState(usuario?.usuario ?? '');
   const [password, setPassword] = useState('');
-  const [pin, setPin] = useState('');
-  const [quitarPin, setQuitarPin] = useState(false);
   const [error, setError] = useState('');
   const [guardando, setGuardando] = useState(false);
   const esMozo = rol === 'MOZO';
@@ -149,9 +267,6 @@ const FormUsuario = ({ usuario, onCerrar, onGuardado }: { usuario: UsuarioFila |
     if (!esMozo) {
       cuerpo.usuario = login.trim();
       if (password) cuerpo.password = password;
-    } else {
-      if (pin) cuerpo.pin = pin;
-      else if (quitarPin) cuerpo.pin = '';
     }
     try {
       if (usuario) await api.patch(`/admin/usuarios/${usuario.id_usuarios}`, cuerpo);
@@ -168,37 +283,36 @@ const FormUsuario = ({ usuario, onCerrar, onGuardado }: { usuario: UsuarioFila |
     <Modal abierto titulo={usuario ? 'Editar persona' : 'Agregar persona'} onCerrar={onCerrar}>
       <form onSubmit={guardar} className="space-y-4">
         {error && <Aviso>{error}</Aviso>}
-        <Campo etiqueta="Nombre completo" value={nombre} onChange={(e) => setNombre(e.target.value)} required maxLength={100} />
+        <Campo
+          etiqueta="Nombre completo"
+          value={nombre}
+          onChange={(e) => setNombre(e.target.value)}
+          required
+          maxLength={100}
+        />
         <Selector etiqueta="Rol" value={rol} onChange={(e) => setRol(e.target.value as Rol)}>
           {ROLES.map((r) => (
-            <option key={r.valor} value={r.valor}>
-              {r.etiqueta}
-            </option>
+            <option key={r.valor} value={r.valor}>{r.etiqueta}</option>
           ))}
         </Selector>
 
         {esMozo ? (
-          <div className="space-y-2 rounded-xl bg-fondo p-3">
+          <div className="rounded-xl bg-fondo p-3">
             <p className="text-sm text-tinta-2">Los mozos no usan contraseña: eligen su nombre en el celular.</p>
-            <Campo
-              etiqueta={usuario?.tienePin ? 'Nuevo PIN (opcional)' : 'PIN de 4 dígitos (opcional)'}
-              inputMode="numeric"
-              pattern="\d{4}"
-              maxLength={4}
-              value={pin}
-              onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
-              ayuda="Evita que otra persona use su nombre"
-            />
-            {usuario?.tienePin && (
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={quitarPin} onChange={(e) => setQuitarPin(e.target.checked)} className="h-4 w-4" />
-                Quitar el PIN actual
-              </label>
-            )}
+            <p className="mt-1 text-xs text-tinta-3">
+              Para asignar o cambiar el PIN usa el botón <Lock className="inline h-3 w-3" /> en la lista.
+            </p>
           </div>
         ) : (
           <>
-            <Campo etiqueta="Usuario para ingresar" autoCapitalize="none" value={login} onChange={(e) => setLogin(e.target.value)} required pattern="[a-zA-Z0-9._\-]{3,50}" />
+            <Campo
+              etiqueta="Usuario para ingresar"
+              autoCapitalize="none"
+              value={login}
+              onChange={(e) => setLogin(e.target.value)}
+              required
+              pattern="[a-zA-Z0-9._\-]{3,50}"
+            />
             <Campo
               etiqueta={usuario ? 'Nueva contraseña (dejar vacío para no cambiar)' : 'Contraseña'}
               type="password"
@@ -208,15 +322,18 @@ const FormUsuario = ({ usuario, onCerrar, onGuardado }: { usuario: UsuarioFila |
               required={!usuario || !usuario.usuario}
               minLength={6}
             />
+            <div className="rounded-xl bg-fondo p-3">
+              <p className="text-sm text-tinta-2">
+                Para asignar o cambiar el PIN de acceso rápido usa el botón{' '}
+                <Lock className="inline h-3 w-3" /> en la lista.
+              </p>
+            </div>
           </>
         )}
+
         <div className="flex justify-end gap-2 pt-2">
-          <Boton type="button" variante="secundario" onClick={onCerrar}>
-            Cancelar
-          </Boton>
-          <Boton type="submit" cargando={guardando}>
-            Guardar
-          </Boton>
+          <Boton type="button" variante="secundario" onClick={onCerrar}>Cancelar</Boton>
+          <Boton type="submit" cargando={guardando}>Guardar</Boton>
         </div>
       </form>
     </Modal>
