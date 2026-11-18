@@ -18,6 +18,7 @@ import PedidosAdmin from './pages/admin/PedidosAdmin';
 import Personal from './pages/admin/Personal';
 import Carta from './pages/admin/Carta';
 import Configuracion from './pages/admin/Configuracion';
+import ParrillaDia from './pages/admin/ParrillaDia';
 
 /** Protege una ruta por rol. ADMIN puede entrar a todo. */
 const Protegida = ({ roles, children, login = '/login' }: { roles: Rol[]; children: ReactNode; login?: string }) => {
@@ -67,6 +68,7 @@ const App = () => (
             <Route path="personal" element={<Personal />} />
             <Route path="carta" element={<Carta />} />
             <Route path="configuracion" element={<Configuracion />} />
+            <Route path="parrilla" element={<ParrillaDia />} />
           </Route>
 
           <Route path="*" element={<Inicio />} />

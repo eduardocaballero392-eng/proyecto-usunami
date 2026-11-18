@@ -36,16 +36,22 @@ const Menu = () => {
 
   const enCarrito = (id: number) => items.filter((i) => i.producto.id_productos === id).reduce((s, i) => s + i.cantidad, 0);
 
-  // 'papa+arroz' → Parrilla | 'arroz+cremas' → todos los platos Broaster | 'ninguno' → resto
-  const tipoPanel = (p: ProductoMenu, categoriaId: number): 'papa+arroz' | 'arroz+cremas' | 'ninguno' => {
+  // 'papa+arroz' → Parrilla | 'arroz+cremas' → todos los platos Broaster | 'modal' → Sopas | 'ninguno' → resto
+  const tipoPanel = (p: ProductoMenu, categoriaId: number): 'papa+arroz' | 'arroz+cremas' | 'modal' | 'ninguno' => {
     if (categoriaId === 1) return 'papa+arroz';
     if (categoriaId === 2) return 'arroz+cremas';
+    if (categoriaId === 4) return 'modal'; // Sopas → siempre abrir modal con nota
     return 'ninguno';
   };
 
   const abrirPanel = (p: ProductoMenu, categoriaId: number) => {
     const tipo = tipoPanel(p, categoriaId);
-    if (tipo === 'ninguno') { agregar(p); return; }
+    if (tipo === 'ninguno') {
+      if (p.opciones.length > 0) { setElegido(p); return; }
+      agregar(p);
+      return;
+    }
+    if (tipo === 'modal') { setElegido(p); return; }
     if (panelAbierto === p.id_productos) { cerrarPanel(); return; }
     setPanelAbierto(p.id_productos);
     setConPapa(false);
@@ -119,7 +125,7 @@ const Menu = () => {
                 const n = enCarrito(p.id_productos);
                 const panelVisible = panelAbierto === p.id_productos;
                 const tipoPan = tipoPanel(p, c.id_categorias);
-                const usaPanel = tipoPan !== 'ninguno';
+                const usaPanel = tipoPan === 'papa+arroz' || tipoPan === 'arroz+cremas';
 
                 return (
                   <li key={p.id_productos}>
@@ -141,7 +147,7 @@ const Menu = () => {
                               <Minus className="h-4 w-4" />
                             </button>
                             <span className="num w-7 text-center font-bold text-amber-500">{n}</span>
-                            <button onClick={() => usaPanel ? abrirPanel(p, c.id_categorias) : agregar(p)}
+                            <button onClick={() => usaPanel ? abrirPanel(p, c.id_categorias) : (p.opciones.length ? setElegido(p) : agregar(p))}
                               className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500 text-white active:scale-95" aria-label="Agregar uno">
                               <Plus className="h-4 w-4" />
                             </button>
@@ -266,49 +272,106 @@ const Menu = () => {
 };
 
 const ModalProducto = ({ producto, onCerrar, onAgregar }: { producto: ProductoMenu; onCerrar: () => void; onAgregar: (o: Opcion[], nota: string, cant: number) => void }) => {
-  const [ops, setOps] = useState<Opcion[]>([]);
+  // Opciones tipo checkbox (precioExtra = 0)
+  const [opsCheck, setOpsCheck] = useState<Opcion[]>([]);
+  // Opciones tipo contador (precioExtra > 0): guardamos {opcion, cantidad}
+  const [opsCont, setOpsCont] = useState<{ opcion: Opcion; cantidad: number }[]>(() =>
+    producto.opciones.filter((o) => o.precioExtra > 0).map((o) => ({ opcion: o, cantidad: 0 }))
+  );
   const [nota, setNota] = useState('');
   const [cant, setCant] = useState(1);
-  const unit = producto.precio + ops.reduce((s, o) => s + o.precioExtra, 0);
+
+  const opcionesCheck = producto.opciones.filter((o) => o.precioExtra === 0);
+  const opcionesCont = producto.opciones.filter((o) => o.precioExtra > 0);
+
+  // Total de extras contables
+  const extraCont = opsCont.reduce((s, x) => s + x.cantidad * x.opcion.precioExtra, 0);
+  const unit = producto.precio + extraCont;
+
+  const cambiarCont = (id: number, delta: number) =>
+    setOpsCont((prev) => prev.map((x) => x.opcion.id_opciones_producto === id ? { ...x, cantidad: Math.max(0, x.cantidad + delta) } : x));
+
+  // Construir array de opciones para el carrito: checkboxes marcados + contables repetidos
+  const buildOps = (): Opcion[] => {
+    const checks = opsCheck;
+    const conts = opsCont.flatMap((x) => Array(x.cantidad).fill(x.opcion));
+    return [...checks, ...conts];
+  };
+
   const sugerencias = ['Sin cebolla', 'Sin ají', 'Bien cocido', 'Término medio', 'Poca sal'];
 
   return (
     <Modal abierto titulo={producto.nombre} onCerrar={onCerrar}>
       <div className="space-y-4">
         {producto.descripcion && <p className="text-sm text-tinta-2">{producto.descripcion}</p>}
-        {producto.opciones.length > 0 && (
+
+        {/* Opciones contables (precio > 0) — con spinner */}
+        {opcionesCont.length > 0 && (
+          <div>
+            <p className="mb-2 text-sm font-medium">Extras</p>
+            <div className="space-y-2">
+              {opsCont.map((x) => (
+                <div key={x.opcion.id_opciones_producto} className={`flex min-h-[48px] items-center gap-3 rounded-xl border px-3 ${x.cantidad > 0 ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/30' : 'border-borde'}`}>
+                  <span className="flex-1 text-sm">{x.opcion.nombre}</span>
+                  <span className="num text-sm text-tinta-2">+{S(x.opcion.precioExtra)}</span>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => cambiarCont(x.opcion.id_opciones_producto, -1)}
+                      className="flex h-8 w-8 items-center justify-center rounded-lg bg-fondo text-tinta-2 active:scale-95">
+                      <Minus className="h-3.5 w-3.5" />
+                    </button>
+                    <span className="num w-5 text-center font-bold">{x.cantidad}</span>
+                    <button onClick={() => cambiarCont(x.opcion.id_opciones_producto, 1)}
+                      className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500 text-white active:scale-95">
+                      <Plus className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Opciones checkbox (precio = 0) */}
+        {opcionesCheck.length > 0 && (
           <fieldset>
             <legend className="mb-2 text-sm font-medium">Opciones</legend>
             <div className="space-y-1">
-              {producto.opciones.map((o) => {
-                const sel = ops.some((x) => x.id_opciones_producto === o.id_opciones_producto);
+              {opcionesCheck.map((o) => {
+                const sel = opsCheck.some((x) => x.id_opciones_producto === o.id_opciones_producto);
                 return (
                   <label key={o.id_opciones_producto} className={`flex min-h-[48px] items-center gap-3 rounded-xl border px-3 ${sel ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/30' : 'border-borde'}`}>
-                    <input type="checkbox" checked={sel} onChange={() => setOps((x) => (sel ? x.filter((y) => y.id_opciones_producto !== o.id_opciones_producto) : [...x, o]))} className="h-5 w-5 accent-amber-500" />
+                    <input type="checkbox" checked={sel}
+                      onChange={() => setOpsCheck((x) => sel ? x.filter((y) => y.id_opciones_producto !== o.id_opciones_producto) : [...x, o])}
+                      className="h-5 w-5 accent-amber-500" />
                     <span className="flex-1">{o.nombre}</span>
-                    {o.precioExtra > 0 && <span className="num text-sm text-tinta-2">+{S(o.precioExtra)}</span>}
                   </label>
                 );
               })}
             </div>
           </fieldset>
         )}
+
+        {/* Nota */}
         <div>
           <label className="mb-1 block text-sm font-medium" htmlFor="nota">Nota para cocina</label>
-          <input id="nota" value={nota} onChange={(e) => setNota(e.target.value)} maxLength={120} placeholder="Ej. sin cebolla" className="h-11 w-full rounded-xl border border-borde bg-superficie px-3" />
+          <input id="nota" value={nota} onChange={(e) => setNota(e.target.value)} maxLength={120}
+            placeholder="Ej. sin cebolla" className="h-11 w-full rounded-xl border border-borde bg-superficie px-3" />
           <div className="mt-2 flex flex-wrap gap-1">
             {sugerencias.map((s) => (
-              <button key={s} onClick={() => setNota((n) => (n ? `${n}, ${s.toLowerCase()}` : s))} className="h-8 rounded-full bg-fondo px-3 text-xs text-tinta-2">{s}</button>
+              <button key={s} onClick={() => setNota((n) => (n ? `${n}, ${s.toLowerCase()}` : s))}
+                className="h-8 rounded-full bg-fondo px-3 text-xs text-tinta-2">{s}</button>
             ))}
           </div>
         </div>
+
+        {/* Cantidad + Agregar */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button onClick={() => setCant((c) => Math.max(1, c - 1))} className="flex h-11 w-11 items-center justify-center rounded-xl bg-fondo" aria-label="Menos"><Minus className="h-5 w-5" /></button>
             <span className="num w-8 text-center text-xl font-bold">{cant}</span>
             <button onClick={() => setCant((c) => Math.min(99, c + 1))} className="flex h-11 w-11 items-center justify-center rounded-xl bg-fondo" aria-label="Más"><Plus className="h-5 w-5" /></button>
           </div>
-          <Boton onClick={() => onAgregar(ops, nota, cant)}>Agregar {S(unit * cant)}</Boton>
+          <Boton onClick={() => onAgregar(buildOps(), nota, cant)}>Agregar {S(unit * cant)}</Boton>
         </div>
       </div>
     </Modal>
