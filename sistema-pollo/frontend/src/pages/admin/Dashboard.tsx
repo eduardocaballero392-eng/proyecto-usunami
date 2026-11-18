@@ -1,16 +1,18 @@
 import { Link } from 'react-router-dom';
-import { AlertTriangle, ArrowRight, Bike, Clock, RefreshCw, ShoppingBag, UtensilsCrossed, Wallet } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Bike, Clock, Moon, RefreshCw, ShoppingBag, Sun, UtensilsCrossed, Wallet } from 'lucide-react';
 import api from '../../api/cliente';
 import { Dashboard as TDashboard } from '../../api/tipos';
 import { Aviso, Spinner, Tarjeta, useDatos } from '../../components/ui';
 import { Kpi, LineaTiempo, Medidor, TarjetaGrafico, Variacion } from '../../components/charts/Graficos';
 import { S, Scorto, fechaLarga, hora, horaDe, num, variacion } from '../../utils/formato';
+import { useTema } from '../../hooks/useTema';
 
 const REFRESCO_MS = 30_000;
 
 /** RF-026: dashboard principal en tiempo real. */
 const Dashboard = () => {
   const { datos: d, error, cargando, recargar } = useDatos(() => api.get<TDashboard>('/reportes/dashboard').then((r) => r.data), [], REFRESCO_MS);
+  const { oscuro, alternarTema } = useTema();
 
   if (cargando && !d) return <Spinner texto="Cargando indicadores…" />;
   if (!d) return <Aviso>{error ?? 'No se pudo cargar el dashboard'}</Aviso>;
@@ -30,10 +32,24 @@ const Dashboard = () => {
           <h1 className="text-2xl font-bold">Dashboard</h1>
           <p className="text-sm text-tinta-3">{fechaLarga(d.fecha)}</p>
         </div>
-        <button onClick={() => recargar()} className="inline-flex h-10 items-center gap-2 rounded-xl border border-borde bg-superficie px-3 text-sm text-tinta-2 hover:bg-fondo">
-          <RefreshCw className={`h-4 w-4 ${cargando ? 'animate-spin' : ''}`} />
-          Actualizado {new Date(d.generadoEn).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={alternarTema}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-borde bg-superficie hover:bg-fondo transition-colors"
+            aria-label={oscuro ? 'Cambiar a tono claro' : 'Cambiar a tono oscuro'}
+            title={oscuro ? 'Cambiar a tono claro' : 'Cambiar a tono oscuro'}
+          >
+            {oscuro ? (
+              <Sun className="h-5 w-5 text-amber-500" />
+            ) : (
+              <Moon className="h-5 w-5 text-slate-600" />
+            )}
+          </button>
+          <button onClick={() => recargar()} className="inline-flex h-10 items-center gap-2 rounded-xl border border-borde bg-superficie px-3 text-sm text-tinta-2 hover:bg-fondo">
+            <RefreshCw className={`h-4 w-4 ${cargando ? 'animate-spin' : ''}`} />
+            Actualizado {new Date(d.generadoEn).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+          </button>
+        </div>
       </header>
 
       {error && <Aviso>Sin conexión: mostrando los últimos datos. {error}</Aviso>}
@@ -158,6 +174,90 @@ const Dashboard = () => {
           )}
         </Tarjeta>
       </div>
+
+      {/* NUEVA SECCIÓN: Productos Destacados - Responsivo */}
+      {d.productosDestacados.length > 0 && (
+        <Tarjeta>
+          <div className="mb-4 flex items-baseline justify-between">
+            <h3 className="font-semibold">🌟 Productos más vendidos hoy</h3>
+            <Link to="/admin/reportes" className="text-sm text-amber-700 hover:underline dark:text-amber-400">
+              Ver más
+            </Link>
+          </div>
+          {/* Vista para escritorio/tablet */}
+          <div className="hidden sm:block overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-borde text-left text-xs text-tinta-3">
+                  <th className="pb-2 font-medium">Producto</th>
+                  <th className="pb-2 font-medium">Categoría</th>
+                  <th className="pb-2 text-right font-medium">Cantidad</th>
+                  <th className="pb-2 text-right font-medium">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {d.productosDestacados.map((p, idx) => (
+                  <tr key={p.id_productos} className="border-b border-borde/50 last:border-0">
+                    <td className="py-2.5">
+                      <span className="inline-flex items-center gap-2">
+                        {idx < 3 ? (
+                          <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                            idx === 0 
+                              ? 'bg-amber-500 text-white dark:bg-amber-600' 
+                              : idx === 1 
+                              ? 'bg-amber-400/70 text-amber-950 dark:bg-amber-500/60 dark:text-amber-100' 
+                              : 'bg-amber-300/50 text-amber-900 dark:bg-amber-400/40 dark:text-amber-200'
+                          }`}>
+                            {idx + 1}
+                          </span>
+                        ) : (
+                          <span className="flex h-6 w-6 shrink-0 items-center justify-center text-xs font-semibold text-tinta-3">
+                            {idx + 1}
+                          </span>
+                        )}
+                        <span className="font-medium">{p.nombre}</span>
+                      </span>
+                    </td>
+                    <td className="py-2.5 text-tinta-2">{p.categoria}</td>
+                    <td className="py-2.5 text-right num font-semibold">{num(p.cantidad)}</td>
+                    <td className="py-2.5 text-right num font-semibold text-amber-700 dark:text-amber-400">{S(p.total)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {/* Vista para móvil */}
+          <div className="sm:hidden space-y-3">
+            {d.productosDestacados.map((p, idx) => (
+              <div key={p.id_productos} className="flex items-start gap-3 rounded-lg bg-fondo p-3">
+                {idx < 3 ? (
+                  <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
+                    idx === 0 
+                      ? 'bg-amber-500 text-white dark:bg-amber-600' 
+                      : idx === 1 
+                      ? 'bg-amber-400/70 text-amber-950 dark:bg-amber-500/60 dark:text-amber-100' 
+                      : 'bg-amber-300/50 text-amber-900 dark:bg-amber-400/40 dark:text-amber-200'
+                  }`}>
+                    {idx + 1}
+                  </span>
+                ) : (
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-fondo border border-borde text-sm font-semibold text-tinta-2">
+                    {idx + 1}
+                  </span>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium truncate">{p.nombre}</p>
+                  <p className="text-xs text-tinta-3">{p.categoria}</p>
+                  <div className="mt-1.5 flex justify-between text-sm">
+                    <span className="text-tinta-2">{num(p.cantidad)} vendidos</span>
+                    <span className="num font-semibold text-amber-700 dark:text-amber-400">{S(p.total)}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Tarjeta>
+      )}
 
       <TarjetaGrafico
         titulo="Ventas de hoy por hora"

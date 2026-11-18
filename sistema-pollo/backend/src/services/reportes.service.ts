@@ -25,7 +25,7 @@ export const dashboard = async () => {
   const rangoHoy = { inicio: `${hoy} 00:00:00`, fin: `${sumarDias(hoy, 1)} 00:00:00` };
   const horaActual = new Date().toLocaleTimeString('en-GB', { timeZone: 'America/Lima', hour12: false });
 
-  const [mesas, activos, ventasHoy, anuladosHoy, ventasAyer, porHora, errores, turnos, activosPorMozo] = await Promise.all([
+  const [mesas, activos, ventasHoy, anuladosHoy, ventasAyer, porHora, errores, turnos, activosPorMozo, productosDestacados] = await Promise.all([
     consultarUno(
       `SELECT COUNT(DISTINCT m.id_mesas) AS total,
               COUNT(DISTINCT CASE WHEN p.id_pedidos IS NOT NULL THEN m.id_mesas END) AS ocupadas
@@ -71,6 +71,20 @@ export const dashboard = async () => {
          FROM pedidos p JOIN usuarios u ON u.id_usuarios = p.usuarioId
         WHERE p.estado = 'ABIERTO' GROUP BY u.id_usuarios ORDER BY pedidos DESC`
     ),
+    // Productos más vendidos hoy (top 10)
+    consultar(
+      `SELECT pr.id_productos, pr.nombre, c.nombre AS categoria,
+              SUM(d.cantidad) AS cantidad, SUM(d.cantidad * (d.precioUnitario + d.recargoUnitario)) AS total
+         FROM detalle_pedidos d
+         JOIN pedidos p ON p.id_pedidos = d.pedidoId
+         JOIN productos pr ON pr.id_productos = d.productoId
+         JOIN categorias c ON c.id_categorias = pr.categoriaId
+        WHERE p.estado = 'PAGADO' AND p.pagadoEn >= ? AND p.pagadoEn < ? AND d.anulado = 0
+        GROUP BY pr.id_productos
+        ORDER BY cantidad DESC
+        LIMIT 10`,
+      [rangoHoy.inicio, rangoHoy.fin]
+    ),
   ]);
 
   const tipos = { MESA: 0, LLEVAR: 0, DELIVERY: 0 } as Record<string, number>;
@@ -115,6 +129,13 @@ export const dashboard = async () => {
     ventasPorHora: horas,
     impresionesConError: n(errores?.n),
     turnosAbiertos: turnos,
+    productosDestacados: productosDestacados.map((p) => ({
+      id_productos: p.id_productos,
+      nombre: p.nombre,
+      categoria: p.categoria,
+      cantidad: n(p.cantidad),
+      total: aNumero(p.total),
+    })),
   };
 };
 

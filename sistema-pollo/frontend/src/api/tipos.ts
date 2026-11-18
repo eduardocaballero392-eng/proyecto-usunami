@@ -138,6 +138,7 @@ export interface Dashboard {
   ventasPorHora: PuntoHora[];
   impresionesConError: number;
   turnosAbiertos: { id_turnos_caja: number; cajero: string; apertura: string }[];
+  productosDestacados: { id_productos: number; nombre: string; categoria: string; cantidad: number; total: number }[];
 }
 
 export interface PuntoHora {
