@@ -185,9 +185,9 @@ const Dashboard = () => {
             </Link>
           </div>
           {/* Vista para escritorio/tablet */}
-          <div className="hidden sm:block overflow-x-auto">
+          <div className="hidden sm:block overflow-x-auto max-h-[500px] overflow-y-auto">
             <table className="w-full text-sm">
-              <thead>
+              <thead className="sticky top-0 bg-superficie z-10">
                 <tr className="border-b border-borde text-left text-xs text-tinta-3">
                   <th className="pb-2 font-medium">Producto</th>
                   <th className="pb-2 font-medium">Categoría</th>
@@ -227,7 +227,7 @@ const Dashboard = () => {
             </table>
           </div>
           {/* Vista para móvil */}
-          <div className="sm:hidden space-y-3">
+          <div className="sm:hidden space-y-3 max-h-[500px] overflow-y-auto">
             {d.productosDestacados.map((p, idx) => (
               <div key={p.id_productos} className="flex items-start gap-3 rounded-lg bg-fondo p-3">
                 {idx < 3 ? (
@@ -256,6 +256,11 @@ const Dashboard = () => {
               </div>
             ))}
           </div>
+          {d.productosDestacados.length === 10 && (
+            <p className="mt-3 text-center text-xs text-tinta-3">
+              Mostrando top 10 · <Link to="/admin/reportes" className="text-amber-700 hover:underline dark:text-amber-400">Ver ranking completo</Link>
+            </p>
+          )}
         </Tarjeta>
       )}
 

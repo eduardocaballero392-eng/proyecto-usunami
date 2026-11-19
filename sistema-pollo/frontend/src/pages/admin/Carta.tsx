@@ -22,8 +22,15 @@ const Carta = () => {
   const [historial, setHistorial] = useState<Producto | null>(null);
   const [catEditando, setCatEditando] = useState<Categoria | 'nueva' | null>(null);
   const [aviso, setAviso] = useState('');
+  const [pagina, setPagina] = useState(1);
 
+  const ITEMS_POR_PAGINA = 10;
   const lista = (productos.datos ?? []).filter((p) => p.nombre.toLowerCase().includes(buscar.toLowerCase()));
+  const totalPaginas = Math.ceil(lista.length / ITEMS_POR_PAGINA);
+  const inicio = (pagina - 1) * ITEMS_POR_PAGINA;
+  const fin = inicio + ITEMS_POR_PAGINA;
+  const listaVisible = buscar ? lista : lista.slice(inicio, fin);
+  const hayMas = pagina < totalPaginas && !buscar;
 
   const alternar = async (p: Producto) => {
     try {
@@ -58,48 +65,170 @@ const Carta = () => {
           {productos.cargando && !productos.datos ? (
             <Spinner />
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[640px] text-sm">
-                <thead className="text-left text-tinta-3">
-                  <tr className="border-b border-borde">
-                    <th className="px-3 py-2 font-medium">Producto</th>
-                    <th className="px-3 py-2 font-medium">Categoría / Área</th>
-                    <th className="px-3 py-2 text-right font-medium">Precio</th>
-                    <th className="px-3 py-2 text-right font-medium">Llevar</th>
-                    <th className="px-3 py-2" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {lista.map((p) => (
-                    <tr key={p.id_productos} className={`border-b border-borde/60 ${p.activo ? '' : 'opacity-50'}`}>
-                      <td className="px-3 py-2">
-                        <p className="font-medium">{p.nombre}</p>
-                        {p.opciones.length > 0 && <p className="text-xs text-tinta-3">{p.opciones.length} opción(es)</p>}
-                      </td>
-                      <td className="px-3 py-2 text-tinta-2">
-                        {p.categoria}
-                        <span className="block text-xs text-tinta-3">{p.area}</span>
-                      </td>
-                      <td className="num px-3 py-2 text-right">{S(p.precio)}</td>
-                      <td className="num px-3 py-2 text-right text-tinta-2">{p.recargoLlevar ? `+${S(p.recargoLlevar)}` : '—'}</td>
-                      <td className="px-3 py-2">
-                        <div className="flex justify-end gap-1">
-                          <button onClick={() => alternar(p)} className="h-9 rounded-lg px-2 text-xs text-tinta-2 hover:bg-fondo">
-                            {p.activo ? 'Ocultar' : 'Mostrar'}
-                          </button>
-                          <button onClick={() => setHistorial(p)} className="flex h-9 w-9 items-center justify-center rounded-lg hover:bg-fondo" aria-label="Historial de precios">
-                            <History className="h-4 w-4" />
-                          </button>
-                          <button onClick={() => setEditando(p)} className="flex h-9 w-9 items-center justify-center rounded-lg hover:bg-fondo" aria-label={`Editar ${p.nombre}`}>
-                            <Pencil className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </td>
+            <>
+              {/* Vista Desktop - Tabla */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full min-w-[640px] text-sm">
+                  <thead className="text-left text-tinta-3">
+                    <tr className="border-b border-borde">
+                      <th className="px-3 py-2 font-medium">Producto</th>
+                      <th className="px-3 py-2 font-medium">Categoría / Área</th>
+                      <th className="px-3 py-2 text-right font-medium">Precio</th>
+                      <th className="px-3 py-2 text-right font-medium">Llevar</th>
+                      <th className="px-3 py-2" />
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {listaVisible.map((p) => (
+                      <tr key={p.id_productos} className={`border-b border-borde/60 ${p.activo ? '' : 'opacity-50'}`}>
+                        <td className="px-3 py-2">
+                          <p className="font-medium">{p.nombre}</p>
+                          {p.opciones.length > 0 && <p className="text-xs text-tinta-3">{p.opciones.length} opción(es)</p>}
+                        </td>
+                        <td className="px-3 py-2 text-tinta-2">
+                          {p.categoria}
+                          <span className="block text-xs text-tinta-3">{p.area}</span>
+                        </td>
+                        <td className="num px-3 py-2 text-right">{S(p.precio)}</td>
+                        <td className="num px-3 py-2 text-right text-tinta-2">{p.recargoLlevar ? `+${S(p.recargoLlevar)}` : '—'}</td>
+                        <td className="px-3 py-2">
+                          <div className="flex justify-end gap-1">
+                            <button onClick={() => alternar(p)} className="h-9 rounded-lg px-2 text-xs text-tinta-2 hover:bg-fondo">
+                              {p.activo ? 'Ocultar' : 'Mostrar'}
+                            </button>
+                            <button onClick={() => setHistorial(p)} className="flex h-9 w-9 items-center justify-center rounded-lg hover:bg-fondo" aria-label="Historial de precios">
+                              <History className="h-4 w-4" />
+                            </button>
+                            <button onClick={() => setEditando(p)} className="flex h-9 w-9 items-center justify-center rounded-lg hover:bg-fondo" aria-label={`Editar ${p.nombre}`}>
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {listaVisible.length === 0 && (
+                      <tr>
+                        <td colSpan={5} className="px-3 py-8 text-center text-sm text-tinta-3">
+                          {buscar ? 'No se encontraron productos' : 'No hay productos registrados'}
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Vista Móvil - Cards */}
+              <div className="md:hidden divide-y divide-borde">
+                {listaVisible.length === 0 ? (
+                  <div className="px-4 py-8 text-center text-sm text-tinta-3">
+                    {buscar ? 'No se encontraron productos' : 'No hay productos registrados'}
+                  </div>
+                ) : (
+                  listaVisible.map((p) => (
+                    <div key={p.id_productos} className={`p-4 ${p.activo ? '' : 'opacity-50'}`}>
+                      <div className="mb-3 flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-medium text-base mb-1">{p.nombre}</h3>
+                          <p className="text-sm text-tinta-3 mb-1">{p.categoria} · {p.area}</p>
+                          {p.opciones.length > 0 && (
+                            <p className="text-xs text-tinta-3">{p.opciones.length} opción(es)</p>
+                          )}
+                        </div>
+                        <div className="text-right">
+                          <p className="text-lg font-semibold num">{S(p.precio)}</p>
+                          {p.recargoLlevar > 0 && (
+                            <p className="text-sm text-tinta-3 num">+{S(p.recargoLlevar)}</p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button 
+                          onClick={() => alternar(p)} 
+                          className="flex-1 h-10 rounded-lg border border-borde bg-superficie text-sm font-medium hover:bg-fondo"
+                        >
+                          {p.activo ? 'Ocultar' : 'Mostrar'}
+                        </button>
+                        <button 
+                          onClick={() => setHistorial(p)} 
+                          className="h-10 w-10 flex items-center justify-center rounded-lg border border-borde bg-superficie hover:bg-fondo"
+                          aria-label="Historial"
+                        >
+                          <History className="h-5 w-5" />
+                        </button>
+                        <button 
+                          onClick={() => setEditando(p)} 
+                          className="h-10 w-10 flex items-center justify-center rounded-lg border border-borde bg-superficie hover:bg-fondo"
+                          aria-label="Editar"
+                        >
+                          <Pencil className="h-5 w-5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {hayMas && (
+                <div className="border-t border-borde bg-fondo p-4">
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <button
+                      onClick={() => setPagina(p => Math.max(1, p - 1))}
+                      disabled={pagina === 1}
+                      className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-tinta-2 transition-colors hover:bg-superficie disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                      </svg>
+                      Anterior
+                    </button>
+                    
+                    <span className="text-sm text-tinta-2">
+                      Página <span className="font-semibold text-tinta-1">{pagina}</span> de <span className="font-semibold text-tinta-1">{totalPaginas}</span>
+                    </span>
+                    
+                    <button
+                      onClick={() => setPagina(p => p + 1)}
+                      className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-amber-600"
+                    >
+                      Siguiente
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {!hayMas && totalPaginas > 1 && (
+                <div className="border-t border-borde bg-fondo p-4">
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <button
+                      onClick={() => setPagina(p => Math.max(1, p - 1))}
+                      className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-tinta-2 transition-colors hover:bg-superficie"
+                    >
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                      </svg>
+                      Anterior
+                    </button>
+                    
+                    <span className="text-sm text-tinta-2">
+                      Página <span className="font-semibold text-tinta-1">{pagina}</span> de <span className="font-semibold text-tinta-1">{totalPaginas}</span>
+                    </span>
+                    
+                    <button
+                      disabled
+                      className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-tinta-3 opacity-40 cursor-not-allowed"
+                    >
+                      Siguiente
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </Tarjeta>
 

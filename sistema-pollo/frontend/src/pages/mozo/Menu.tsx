@@ -37,7 +37,7 @@ const Menu = () => {
   const enCarrito = (id: number) => items.filter((i) => i.producto.id_productos === id).reduce((s, i) => s + i.cantidad, 0);
 
   // 'papa+arroz' → Parrilla | 'arroz+cremas' → todos los platos Broaster | 'modal' → Sopas | 'ninguno' → resto
-  const tipoPanel = (p: ProductoMenu, categoriaId: number): 'papa+arroz' | 'arroz+cremas' | 'modal' | 'ninguno' => {
+  const tipoPanel = (_p: ProductoMenu, categoriaId: number): 'papa+arroz' | 'arroz+cremas' | 'modal' | 'ninguno' => {
     if (categoriaId === 1) return 'papa+arroz';
     if (categoriaId === 2) return 'arroz+cremas';
     if (categoriaId === 4) return 'modal'; // Sopas → siempre abrir modal con nota

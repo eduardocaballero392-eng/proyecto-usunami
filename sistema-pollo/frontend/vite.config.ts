@@ -7,9 +7,13 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
-    host: true, // accesible desde los celulares de la red local
+    host: '0.0.0.0', // ✅ Accesible desde cualquier dispositivo en la red local
     proxy: {
-      '/api': { target: 'http://localhost:3000', changeOrigin: true },
+      '/api': { 
+        target: 'http://192.168.1.81:3000', // ✅ IP local para que funcione desde celular
+        changeOrigin: true,
+        secure: false,
+      },
     },
   },
   build: {

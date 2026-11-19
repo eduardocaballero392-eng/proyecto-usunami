@@ -25,10 +25,17 @@ const Personal = () => {
   const [editando, setEditando] = useState<UsuarioFila | 'nuevo' | null>(null);
   const [cambiandoPin, setCambiandoPin] = useState<UsuarioFila | null>(null);
   const [aviso, setAviso] = useState('');
+  const [pagina, setPagina] = useState(1);
 
+  const ITEMS_POR_PAGINA = 10;
   const filas = (datos ?? []).filter((u) =>
     filtro === 'todos' || (filtro === 'MOZO' ? u.rol === 'MOZO' : u.rol !== 'MOZO')
   );
+  const totalPaginas = Math.ceil(filas.length / ITEMS_POR_PAGINA);
+  const inicio = (pagina - 1) * ITEMS_POR_PAGINA;
+  const fin = inicio + ITEMS_POR_PAGINA;
+  const filasVisibles = filas.slice(inicio, fin);
+  const hayMas = pagina < totalPaginas;
 
   const alternarActivo = async (u: UsuarioFila) => {
     try {
@@ -75,70 +82,104 @@ const Personal = () => {
       {cargando && !datos ? (
         <Spinner />
       ) : (
-        <Tarjeta className="!p-0">
-          <ul className="divide-y divide-borde">
-            {filas.map((u) => (
-              <li
-                key={u.id_usuarios}
-                className={`flex flex-wrap items-center gap-3 px-4 py-3 ${u.activo ? '' : 'opacity-60'}`}
-              >
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-fondo text-tinta-2">
-                  <User className="h-5 w-5" />
-                </span>
+        <>
+          <Tarjeta className="!p-0">
+            <ul className="divide-y divide-borde">
+              {filasVisibles.map((u) => (
+                <li
+                  key={u.id_usuarios}
+                  className={`flex flex-wrap items-center gap-3 px-4 py-3 ${u.activo ? '' : 'opacity-60'}`}
+                >
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-fondo text-tinta-2">
+                    <User className="h-5 w-5" />
+                  </span>
 
-                <div className="min-w-0 flex-1">
-                  <p className="font-medium">
-                    {u.nombre}
-                    {!u.activo && <span className="ml-2 text-xs font-normal text-tinta-3">(inactivo)</span>}
-                  </p>
-                  <p className="flex flex-wrap items-center gap-x-3 text-sm text-tinta-3">
-                    <span>{etiquetaRol(u.rol)}</span>
-                    {u.usuario && (
-                      <span className="inline-flex items-center gap-1">
-                        <KeyRound className="h-3 w-3" /> {u.usuario}
-                      </span>
-                    )}
-                    {u.tienePin && (
-                      <span className="inline-flex items-center gap-1">
-                        <Lock className="h-3 w-3" /> PIN
-                      </span>
-                    )}
-                    <span>{u.pedidos} pedidos</span>
-                  </p>
-                </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium">
+                      {u.nombre}
+                      {!u.activo && <span className="ml-2 text-xs font-normal text-tinta-3">(inactivo)</span>}
+                    </p>
+                    <p className="flex flex-wrap items-center gap-x-3 text-sm text-tinta-3">
+                      <span>{etiquetaRol(u.rol)}</span>
+                      {u.usuario && (
+                        <span className="inline-flex items-center gap-1">
+                          <KeyRound className="h-3 w-3" /> {u.usuario}
+                        </span>
+                      )}
+                      {u.tienePin && (
+                        <span className="inline-flex items-center gap-1">
+                          <Lock className="h-3 w-3" /> PIN
+                        </span>
+                      )}
+                      <span>{u.pedidos} pedidos</span>
+                    </p>
+                  </div>
 
-                <div className="flex items-center gap-1">
-                  {u.id_usuarios !== yo?.id && (
-                    <Boton variante="fantasma" onClick={() => alternarActivo(u)} className="text-sm">
-                      {u.activo ? 'Desactivar' : 'Activar'}
-                    </Boton>
-                  )}
-                  {/* Botón PIN — solo el administrador lo ve */}
-                  {yo?.rol === 'ADMIN' && (
+                  <div className="flex items-center gap-1">
+                    {u.id_usuarios !== yo?.id && (
+                      <Boton variante="fantasma" onClick={() => alternarActivo(u)} className="text-sm">
+                        {u.activo ? 'Desactivar' : 'Activar'}
+                      </Boton>
+                    )}
+                    {/* Botón PIN — solo el administrador lo ve */}
+                    {yo?.rol === 'ADMIN' && (
+                      <Boton
+                        variante="secundario"
+                        onClick={() => setCambiandoPin(u)}
+                        aria-label={`PIN de ${u.nombre}`}
+                        title={u.tienePin ? 'Cambiar PIN' : 'Asignar PIN'}
+                      >
+                        <Lock className="h-4 w-4" />
+                      </Boton>
+                    )}
                     <Boton
                       variante="secundario"
-                      onClick={() => setCambiandoPin(u)}
-                      aria-label={`PIN de ${u.nombre}`}
-                      title={u.tienePin ? 'Cambiar PIN' : 'Asignar PIN'}
+                      onClick={() => setEditando(u)}
+                      aria-label={`Editar ${u.nombre}`}
                     >
-                      <Lock className="h-4 w-4" />
+                      <Pencil className="h-4 w-4" />
                     </Boton>
-                  )}
-                  <Boton
-                    variante="secundario"
-                    onClick={() => setEditando(u)}
-                    aria-label={`Editar ${u.nombre}`}
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Boton>
-                </div>
-              </li>
-            ))}
-            {!filas.length && (
-              <li className="px-4 py-8 text-center text-sm text-tinta-3">No hay registros</li>
-            )}
-          </ul>
-        </Tarjeta>
+                  </div>
+                </li>
+              ))}
+              {!filasVisibles.length && (
+                <li className="px-4 py-8 text-center text-sm text-tinta-3">No hay registros</li>
+              )}
+            </ul>
+          </Tarjeta>
+
+          {totalPaginas > 1 && (
+            <Tarjeta>
+              <div className="flex items-center justify-between gap-4">
+                <button
+                  onClick={() => setPagina(p => Math.max(1, p - 1))}
+                  disabled={pagina === 1}
+                  className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-tinta-2 transition-colors hover:bg-fondo disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                  </svg>
+                  Anterior
+                </button>
+                
+                <span className="text-sm text-tinta-2">
+                  Página <span className="font-semibold text-tinta-1">{pagina}</span> de <span className="font-semibold text-tinta-1">{totalPaginas}</span>
+                </span>
+                
+                <button
+                  onClick={() => setPagina(p => p + 1)}
+                  disabled={!hayMas}
+                  className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-600 disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-amber-500"
+                >
+                  Siguiente
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
+            </Tarjeta>
+          )}
+        </>
       )}
 
       {editando && (
