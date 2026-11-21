@@ -3,6 +3,7 @@ import { env } from './config/env';
 import app from './app';
 import { cerrarPool, probarConexion } from './config/database';
 import { detenerWorker, iniciarWorker } from './services/impresion.service';
+import { bleServer } from './services/ble-server.service';
 import logger from './utils/logger';
 
 const ipsLocales = () =>
@@ -19,17 +20,42 @@ const iniciar = async () => {
     process.exit(1);
   }
 
+  // Iniciar servidor BLE si el modo es bluetooth
+  if (env.impresion.modo === 'bluetooth') {
+    try {
+      logger.info('[BLE Server] Iniciando servidor BLE persistente...');
+      await bleServer.start();
+      logger.info('[BLE Server] ✅ Servidor BLE iniciado correctamente');
+    } catch (e) {
+      logger.warn('[BLE Server] No se pudo iniciar servidor BLE (Bluetooth no disponible)', { 
+        error: (e as Error).message 
+      });
+      logger.warn('[BLE Server] Las impresoras Bluetooth no funcionarán. Verifica que Bluetooth esté activo.');
+    }
+  }
+
   const servidor = app.listen(env.puerto, '0.0.0.0', () => {
     logger.info(`Servidor escuchando en el puerto ${env.puerto}`, {
       entorno: env.esProduccion ? 'production' : 'development',
       red: ipsLocales().map((ip) => `http://${ip}:${env.puerto}`),
+      printerMode: env.impresion.modo,
     });
   });
   iniciarWorker();
 
-  const apagar = (senal: string) => {
+  const apagar = async (senal: string) => {
     logger.info(`Recibido ${senal}, cerrando…`);
     detenerWorker();
+    
+    // Detener servidor BLE
+    if (env.impresion.modo === 'bluetooth') {
+      try {
+        await bleServer.stop();
+      } catch (e) {
+        logger.warn('[BLE Server] Error al detener servidor BLE', { error: (e as Error).message });
+      }
+    }
+    
     servidor.close(() => {
       cerrarPool().finally(() => process.exit(0));
     });

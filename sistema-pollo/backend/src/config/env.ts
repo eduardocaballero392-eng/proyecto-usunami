@@ -31,8 +31,8 @@ export const env = {
   },
 
   impresion: {
-    modo: (process.env.PRINTER_MODE === 'network' ? 'network' : 'mock') as 'network' | 'mock',
-    timeoutMs: parseInt(process.env.PRINTER_TIMEOUT_MS || '5000', 10),
+    modo: (['network', 'bluetooth'].includes(process.env.PRINTER_MODE || '') ? process.env.PRINTER_MODE : 'mock') as 'network' | 'bluetooth' | 'mock',
+    timeoutMs: parseInt(process.env.PRINTER_TIMEOUT_MS || '10000', 10),
     maxIntentos: parseInt(process.env.PRINTER_MAX_RETRIES || '3', 10),
     esperaReintentoSeg: parseInt(process.env.PRINTER_RETRY_DELAY_S || '30', 10),
     anchoCaracteres: parseInt(process.env.PRINTER_WIDTH_CHARS || '42', 10),
